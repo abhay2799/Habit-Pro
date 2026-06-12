@@ -8,7 +8,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.ads.AdManager
 import com.example.data.model.Habit
 import com.example.data.model.UserSession
 import com.example.data.repository.HabitRepository
@@ -47,9 +46,6 @@ class HabitViewModel(
     private val _habitCompletions = MutableStateFlow<Map<Long, List<String>>>(emptyMap())
     val habitCompletions: StateFlow<Map<Long, List<String>>> = _habitCompletions.asStateFlow()
 
-    private val _secondsUntilAd = MutableStateFlow(0L)
-    val secondsUntilAd: StateFlow<Long> = _secondsUntilAd.asStateFlow()
-
     init {
         // Load completions periodically to compute analytics metrics
         viewModelScope.launch {
@@ -58,14 +54,6 @@ class HabitViewModel(
                     entry.value.map { it.dateString }
                 }
                 _habitCompletions.value = grouped
-            }
-        }
-
-        // Periodically tick ad timer
-        viewModelScope.launch {
-            while (true) {
-                _secondsUntilAd.value = AdManager.getSecondsUntilNextAd()
-                kotlinx.coroutines.delay(1000)
             }
         }
     }

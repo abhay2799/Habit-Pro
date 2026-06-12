@@ -4,35 +4,30 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.example.ads.AdManager
 import com.example.data.local.AppDatabase
 import com.example.data.repository.HabitRepository
 import com.example.notifications.NotificationHelper
@@ -41,7 +36,6 @@ import com.example.ui.HabitViewModelFactory
 import com.example.ui.screens.AnalyticsScreen
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.OnboardingScreen
-import com.example.ui.screens.ShopScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.SoundscapesScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -55,8 +49,7 @@ class MainActivity : ComponentActivity() {
         
         enableEdgeToEdge()
 
-        // 1. Initialize AdMob Ads, Notifications, and RevenueCat
-        AdManager.initialize(applicationContext)
+        // Initialize Notifications and RevenueCat (Ads removed)
         NotificationHelper.createNotificationChannel(applicationContext)
         
         // Initialize RevenueCat (Google Play Billing Wrapper)
@@ -66,7 +59,7 @@ class MainActivity : ComponentActivity() {
             Purchases.configure(PurchasesConfiguration.Builder(this, revenueCatApiKey).build())
         }
 
-        // 2. Build Database and Repository
+        // Build Database and Repository
         val database = AppDatabase.getDatabase(applicationContext, lifecycleScope)
         val repository = HabitRepository(database.habitDao(), applicationContext)
 
@@ -98,7 +91,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Render dynamic wake-up pop-on overlay over lock screen or app layout
+                // Render dynamic wake-up pop-on overlay
                 if (alarmOverlayState != null) {
                     val overlayDetails = alarmOverlayState!!
                     AlertDialog(
@@ -136,6 +129,7 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(onboardingCompletePref.getBoolean("tutorial_completed", false)) 
                 }
 
+                // Dynamic background: gradient for light, solid for dark
                 val isDarkTheme = isDarkMode
                 val gradientBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
                     colors = listOf(Color(0xFFF0F4F8), Color(0xFFE2E8F0))
@@ -241,7 +235,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
         kotlinx.coroutines.delay(100)
         isVisible = true
         showDivider = true
-        mediaPlayer?.start() // Sync exact with yellow line and text animation
+        mediaPlayer?.start()
         kotlinx.coroutines.delay(3500)
         onTimeout()
     }
@@ -286,10 +280,24 @@ fun SplashScreen(onTimeout: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun MainAppContent(viewModel: HabitViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
     val isDarkMode by viewModel.isDarkMode.collectAsState()
+
+    // Dynamic nav bar colors based on theme
+    val navBarBgColor = if (isDarkMode) {
+        Color(0xFF13131A).copy(alpha = 0.85f)
+    } else {
+        Color(0xFFFFFFFF).copy(alpha = 0.80f)
+    }
+
+    val navBarBorderColor = if (isDarkMode) {
+        Color.White.copy(alpha = 0.05f)
+    } else {
+        Color(0xFFD1D5DB).copy(alpha = 0.4f)
+    }
 
     Scaffold(
         modifier = Modifier
@@ -302,7 +310,7 @@ fun MainAppContent(viewModel: HabitViewModel) {
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
                     .clip(RoundedCornerShape(32.dp))
-                    .background(Color(0xFF13131A).copy(alpha = 0.85f))
+                    .background(navBarBgColor)
             ) {
                 NavigationBar(
                     modifier = Modifier
@@ -312,11 +320,16 @@ fun MainAppContent(viewModel: HabitViewModel) {
                     tonalElevation = 0.dp,
                     windowInsets = WindowInsets(0, 0, 0, 0)
                 ) {
+                    // Dynamic nav item colors based on theme
+                    val selectedIconColor = if (isDarkMode) Color.White else Color.White
+                    val unselectedIconColor = if (isDarkMode) Color.Gray else Color(0xFF9CA3AF)
+                    val indicatorColor = MaterialTheme.colorScheme.primary
+                    
                     val navItemColors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = Color.White,
-                        indicatorColor = Color(0xFF2E68FF), // GradientStart replacement
-                        unselectedIconColor = Color.Gray,
+                        selectedIconColor = selectedIconColor,
+                        selectedTextColor = if (isDarkMode) Color.White else MaterialTheme.colorScheme.primary,
+                        indicatorColor = indicatorColor,
+                        unselectedIconColor = unselectedIconColor,
                         unselectedTextColor = Color.Transparent
                     )
 
@@ -361,11 +374,21 @@ fun MainAppContent(viewModel: HabitViewModel) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (selectedTab) {
-                0 -> com.example.ui.screens.DashboardScreen(viewModel = viewModel)
-                1 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Sounds coming soon", color = MaterialTheme.colorScheme.onBackground) }
-                2 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Analytics coming soon", color = MaterialTheme.colorScheme.onBackground) }
-                3 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Profile coming soon", color = MaterialTheme.colorScheme.onBackground) }
+            // Animated screen transitions with crossfade
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(300)) togetherWith
+                        fadeOut(animationSpec = tween(200))
+                },
+                label = "tab_transition"
+            ) { targetTab ->
+                when (targetTab) {
+                    0 -> DashboardScreen(viewModel = viewModel)
+                    1 -> SoundscapesScreen(viewModel = viewModel)
+                    2 -> AnalyticsScreen(viewModel = viewModel)
+                    3 -> ProfileScreen(viewModel = viewModel)
+                }
             }
         }
     }

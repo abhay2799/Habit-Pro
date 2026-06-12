@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ads.AdManager
 import com.example.ui.HabitViewModel
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesError
@@ -41,7 +40,6 @@ fun ShopScreen(
     modifier: Modifier = Modifier
 ) {
     val session by viewModel.userSession.collectAsState()
-    val secondsUntilAd by viewModel.secondsUntilAd.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
 

@@ -1,16 +1,16 @@
 package com.example.ui.screens
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,218 +19,341 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ads.AdManager
+import com.example.R
 import com.example.services.AmbientSoundService
 import androidx.core.content.ContextCompat
 import com.example.ui.HabitViewModel
 
+data class SoundscapeItem(
+    val title: String,
+    val subtitle: String,
+    val drawableRes: Int
+)
+
 @Composable
 fun SoundscapesScreen(viewModel: HabitViewModel) {
     val context = LocalContext.current
-    val userSession by viewModel.userSession.collectAsState()
 
-    val soundscapes = listOf(
-        Pair("Cosmic Binarual Waves 🎵", "Local File: cosmic_binarual_waves.mp3"),
-        Pair("Cozy Rain Sound 🎵", "Local File: cozy_rain_sound.mp3"),
-        Pair("Forest Ambient Meditation 🎵", "Local File: forest_ambient_meditation.mp3"),
-        Pair("Indian Tanpura 🎵", "Local File: indian_tanpura.mp3"),
-        Pair("Mantra OM 🎵", "Local File: mantra_om.mp3"),
-        Pair("Night Sound 🎵", "Local File: night_sound.mp3")
-    )
+    val soundscapes = remember {
+        listOf(
+            SoundscapeItem("Cosmic Binaural Waves 🎵", "Local File: cosmic_binaural_waves.mp3", R.drawable.cosmic_binaural_waves),
+            SoundscapeItem("Cozy Rain Sound 🎵", "Local File: cozy_rain_sound.mp3", R.drawable.cozy_rain_sound),
+            SoundscapeItem("Forest Ambient Meditation 🎵", "Local File: forest_ambient_meditation.mp3", R.drawable.forest_ambient_meditation),
+            SoundscapeItem("Indian Tanpura 🎵", "Local File: indian_tanpura.mp3", R.drawable.indian_tanpura),
+            SoundscapeItem("Mantra OM 🎵", "Local File: mantra_om.mp3", R.drawable.mantra_om),
+            SoundscapeItem("Night Sound 🎵", "Local File: night_sound.mp3", R.drawable.night_sound)
+        )
+    }
 
     var activeStateIdx by remember { mutableStateOf(-1) }
     var soundVolume by remember { mutableStateOf(0.7f) }
-
-
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
+            .padding(bottom = 70.dp)
     ) {
-        Text(
-            text = "🎧 Zen Soundscapes",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-
-        Text(
-            text = "Real-time hardware synthesized noise loops. Perfect for ultimate flow locking and deep work.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+        // ═══════════════════════════════
+        // HEADER: Devlance Studio branding
+        // ═══════════════════════════════
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 4.dp)
         ) {
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.MusicVideo,
+                    imageVector = Icons.Default.Headphones,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(28.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Row {
                     Text(
-                        text = if (activeStateIdx != -1) "Currently Playing" else "No Active Stream",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp,
+                        text = "Devlance ",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = if (activeStateIdx != -1) soundscapes[activeStateIdx].first else "Stream offline • Select a loop below",
+                        text = "Studio",
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
+            }
+        }
+        Text(
+            text = "Escape. Focus. Flow. Enjoy offline sounds with\nyour headphones, close your eyes and feel the vibe.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-                if (activeStateIdx != -1) {
-                    IconButton(
-                        onClick = {
-                            activeStateIdx = -1
-                            val stopIntent = Intent(context, AmbientSoundService::class.java).apply { action = AmbientSoundService.ACTION_STOP }
-                            context.startService(stopIntent)
-                        },
-                        colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary)
+        // ═══════════════════════════════
+        // CURRENTLY PLAYING CARD
+        // ═══════════════════════════════
+        AnimatedVisibility(
+            visible = activeStateIdx != -1,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            if (activeStateIdx in soundscapes.indices) {
+                val activeSoundscape = soundscapes[activeStateIdx]
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = "Stop Stream",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                        // Preview thumbnail
+                        Image(
+                            painter = painterResource(id = activeSoundscape.drawableRes),
+                            contentDescription = activeSoundscape.title,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
                         )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "CURRENTLY PLAYING",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.5.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = activeSoundscape.title,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        // Stop button
+                        IconButton(
+                            onClick = {
+                                activeStateIdx = -1
+                                val stopIntent = Intent(context, AmbientSoundService::class.java).apply {
+                                    action = AmbientSoundService.ACTION_STOP
+                                }
+                                context.startService(stopIntent)
+                            },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = "Stop Stream",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                 }
             }
         }
 
+        // ═══════════════════════════════
+        // SOUNDSCAPE LIST
+        // ═══════════════════════════════
         LazyColumn(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            itemsIndexed(soundscapes) { sIdx, pair ->
+            itemsIndexed(soundscapes) { sIdx, soundscape ->
                 val isSelected = activeStateIdx == sIdx
-                val hasPremiumAccess = true // Fully unlocked
 
-                Row(
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        }
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .then(
+                            if (isSelected) {
+                                Modifier.border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                            } else {
+                                Modifier
+                            }
+                        )
                         .clickable {
                             if (isSelected) {
                                 activeStateIdx = -1
-                                val stopIntent = Intent(context, AmbientSoundService::class.java).apply { action = AmbientSoundService.ACTION_STOP }
+                                val stopIntent = Intent(context, AmbientSoundService::class.java).apply {
+                                    action = AmbientSoundService.ACTION_STOP
+                                }
                                 context.startService(stopIntent)
                             } else {
-                                    activeStateIdx = sIdx
-                                    val playIntent = Intent(context, AmbientSoundService::class.java).apply {
-                                        action = AmbientSoundService.ACTION_PLAY
-                                        putExtra(AmbientSoundService.EXTRA_TRACK_INDEX, sIdx)
-                                        putExtra(AmbientSoundService.EXTRA_VOLUME, soundVolume)
-                                    }
-                                    ContextCompat.startForegroundService(context, playIntent)
+                                activeStateIdx = sIdx
+                                val playIntent = Intent(context, AmbientSoundService::class.java).apply {
+                                    action = AmbientSoundService.ACTION_PLAY
+                                    putExtra(AmbientSoundService.EXTRA_TRACK_INDEX, sIdx)
+                                    putExtra(AmbientSoundService.EXTRA_VOLUME, soundVolume)
+                                }
+                                ContextCompat.startForegroundService(context, playIntent)
                             }
                         }
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = pair.first,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Preview thumbnail image
+                        Image(
+                            painter = painterResource(id = soundscape.drawableRes),
+                            contentDescription = soundscape.title,
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = pair.second,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (!hasPremiumAccess) {
-                            Icon(
-                                imageVector = Icons.Default.Lock,
-                                contentDescription = "Sponsor Unlocked Only",
-                                tint = Color(0xFFF59E0B),
-                                modifier = Modifier
-                                    .size(24.dp)
-                                    .padding(end = 8.dp)
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        // Title and subtitle
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = soundscape.title,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = soundscape.subtitle,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Icon(
-                            imageVector = if (isSelected) Icons.Default.PauseCircleFilled else Icons.Default.PlayCircleFilled,
-                            contentDescription = "Status Play State Icon Indicator",
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(28.dp)
-                        )
+
+                        // Play/Pause button
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isSelected) Icons.Default.PauseCircleFilled else Icons.Default.PlayCircleFilled,
+                                contentDescription = if (isSelected) "Pause" else "Play",
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Dedicated volume slider control panel
-        if (activeStateIdx != -1) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+        // ═══════════════════════════════
+        // VOLUME CONTROL PANEL
+        // ═══════════════════════════════
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                ) {
-                    Icon(
-                        imageVector = if (soundVolume > 0.5f) Icons.Default.VolumeUp else if (soundVolume > 0f) Icons.Default.VolumeDown else Icons.Default.VolumeOff,
-                        contentDescription = "Active Volume Controls Slider",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Slider(
-                        value = soundVolume,
-                        onValueChange = {
-                            soundVolume = it
+                Icon(
+                    imageVector = if (soundVolume > 0.5f) Icons.Default.VolumeUp
+                    else if (soundVolume > 0f) Icons.Default.VolumeDown
+                    else Icons.Default.VolumeOff,
+                    contentDescription = "Volume",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Slider(
+                    value = soundVolume,
+                    onValueChange = {
+                        soundVolume = it
+                        if (activeStateIdx != -1) {
                             val volIntent = Intent(context, AmbientSoundService::class.java).apply {
                                 action = AmbientSoundService.ACTION_SET_VOLUME
                                 putExtra(AmbientSoundService.EXTRA_VOLUME, it)
                             }
                             context.startService(volIntent)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("applet_ambient_volume_slider")
-                    )
-                }
+                        }
+                    },
+                    colors = SliderDefaults.colors(
+                        thumbColor = MaterialTheme.colorScheme.primary,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("applet_ambient_volume_slider")
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Icon(
+                    imageVector = Icons.Default.Equalizer,
+                    contentDescription = "Equalizer",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }

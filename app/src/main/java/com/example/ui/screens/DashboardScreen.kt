@@ -37,10 +37,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import com.example.ads.AdManager
 import com.example.data.model.Habit
 import com.example.ui.HabitViewModel
+import com.example.ui.theme.LocalAccentPalette
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.flow.collectLatest
@@ -75,9 +74,8 @@ fun DashboardScreen(
     // Dialog state
     var showAddDialog by remember { mutableStateOf(false) }
     var selectedCategoryFilter by remember { mutableStateOf("All") }
-    
-    // Ad watched state
-    var adsWatchedCounter by remember { mutableStateOf(0) }
+
+    val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
     val categories = listOf("All", "Health", "Fitness", "Work", "Personal")
@@ -170,10 +168,10 @@ fun DashboardScreen(
                 contentColor = Color.White,
                 modifier = Modifier
                     .testTag("add_habit_fab")
-                    .padding(bottom = 60.dp)
+                    .padding(bottom = 10.dp)
                     .background(
                         brush = Brush.horizontalGradient(
-                            colors = listOf(Color(0xFF2E68FF), Color(0xFFB130FF))
+                            colors = listOf(MaterialTheme.colorScheme.primary, Color(0xFFB130FF))
                         ),
                         shape = RoundedCornerShape(24.dp)
                     )
@@ -208,7 +206,7 @@ fun DashboardScreen(
                                         text = "Hello, ${userSession.username}",
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color.White
+                                        color = MaterialTheme.colorScheme.onBackground
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("👋", fontSize = 24.sp)
@@ -217,7 +215,7 @@ fun DashboardScreen(
                                 Text(
                                     text = "Level ${1 + (userSession.totalXp / 100)} >",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color.LightGray
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
@@ -241,7 +239,7 @@ fun DashboardScreen(
                                             text = "0 Day Streak",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                 }
@@ -265,7 +263,7 @@ fun DashboardScreen(
                                             text = "${userSession.totalXp} XP",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = MaterialTheme.colorScheme.onBackground
                                         )
                                     }
                                 }
@@ -281,8 +279,8 @@ fun DashboardScreen(
                             // Current Streak Card
                             Card(
                                 shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0F14)),
-                                modifier = Modifier.weight(1.2f).border(1.dp, Color.White.copy(alpha=0.05f), RoundedCornerShape(20.dp))
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                modifier = Modifier.weight(1.2f).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
@@ -317,24 +315,24 @@ fun DashboardScreen(
                                             text = "$maxStreak",
                                             fontSize = 28.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFFB130FF)
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                         Text(
                                             text = "-Day Streak",
                                             fontSize = 20.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(16.dp))
                                     
                                     // Visual progression line
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Hexagon, contentDescription=null, tint=Color.White, modifier=Modifier.size(20.dp))
-                                        Box(modifier = Modifier.width(30.dp).height(1.dp).background(Color.DarkGray))
-                                        Icon(Icons.Default.Lock, contentDescription=null, tint=Color.DarkGray, modifier=Modifier.size(16.dp))
-                                        Box(modifier = Modifier.width(30.dp).height(1.dp).background(Color.DarkGray))
-                                        Icon(Icons.Default.Lock, contentDescription=null, tint=Color.DarkGray, modifier=Modifier.size(16.dp))
+                                        Icon(Icons.Default.Hexagon, contentDescription=null, tint=MaterialTheme.colorScheme.onSurface, modifier=Modifier.size(20.dp))
+                                        Box(modifier = Modifier.width(30.dp).height(1.dp).background(MaterialTheme.colorScheme.outline))
+                                        Icon(Icons.Default.Lock, contentDescription=null, tint=MaterialTheme.colorScheme.outline, modifier=Modifier.size(16.dp))
+                                        Box(modifier = Modifier.width(30.dp).height(1.dp).background(MaterialTheme.colorScheme.outline))
+                                        Icon(Icons.Default.Lock, contentDescription=null, tint=MaterialTheme.colorScheme.outline, modifier=Modifier.size(16.dp))
                                     }
 
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -342,17 +340,17 @@ fun DashboardScreen(
                                     Text(
                                         text = "$habitsLeft more trackers to",
                                         fontSize = 11.sp,
-                                        color = Color.LightGray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
                                         text = "secure your streak flame",
                                         fontSize = 11.sp,
-                                        color = Color.LightGray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
                                         text = "today! 🚀",
                                         fontSize = 11.sp,
-                                        color = Color.LightGray
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -362,8 +360,8 @@ fun DashboardScreen(
                             val waterGoal by viewModel.dailyWaterGoal.collectAsState()
                             Card(
                                 shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0F14)),
-                                modifier = Modifier.weight(0.8f).height(190.dp).border(1.dp, Color.White.copy(alpha=0.05f), RoundedCornerShape(20.dp)).clickable { viewModel.addWaterGlass() }
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                modifier = Modifier.weight(0.8f).height(190.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp)).clickable { viewModel.addWaterGlass() }
                             ) {
                                 Column(
                                     modifier = Modifier.padding(16.dp).fillMaxSize(),
@@ -470,7 +468,7 @@ fun DashboardScreen(
                                 modifier = Modifier
                                     .padding(end = 8.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(if (isSelected) Color(0xFF2E68FF) else Color.Transparent)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent)
                                     .clickable { selectedCategoryFilter = category }
                                     .padding(horizontal = 14.dp, vertical = 8.dp),
                                 contentAlignment = Alignment.Center
@@ -481,7 +479,7 @@ fun DashboardScreen(
                                         Icon(
                                             imageVector = icon,
                                             contentDescription = null,
-                                            tint = if (isSelected) Color.White else Color.Gray,
+                                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -490,7 +488,7 @@ fun DashboardScreen(
                                         text = category,
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else Color.Gray
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -628,22 +626,6 @@ fun DashboardScreen(
                 }
             }
 
-            // AdMob static Banner container
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .background(MaterialTheme.colorScheme.surface)
-                    .navigationBarsPadding(),
-                contentAlignment = Alignment.Center
-            ) {
-                AndroidView(
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    factory = { ctx ->
-                        AdManager.createBannerAdView(ctx)
-                    }
-                )
-            }
 
             // --- FEATURE 7: On-Device Biometric Vault Verification Lock Simulation ---
             if (userSession.biometricEnabled && !isBiometricScreenUnlocked) {
@@ -1111,7 +1093,7 @@ fun HabitItemCard(
                         text = habit.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     
                     Spacer(modifier = Modifier.height(2.dp))
@@ -1119,7 +1101,7 @@ fun HabitItemCard(
                     Text(
                         text = habit.description.ifBlank { "Complete your habit everyday." },
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -1155,7 +1137,7 @@ fun HabitItemCard(
                             Text(
                                 text = "Micro-Step 0/3",
                                 fontSize = 10.sp,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -1167,7 +1149,7 @@ fun HabitItemCard(
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "Options",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp).clickable { onDelete() }
                 )
                 
@@ -1180,11 +1162,11 @@ fun HabitItemCard(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Complete Habit Checkmark",
-                        tint = if (isCompleted) Color(0xFF2E68FF) else Color.DarkGray,
+                        tint = if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .border(2.dp, if (isCompleted) Color(0xFF2E68FF) else Color(0xFF1E284A), CircleShape)
+                            .border(2.dp, if (isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, CircleShape)
                             .padding(8.dp)
                     )
                 }

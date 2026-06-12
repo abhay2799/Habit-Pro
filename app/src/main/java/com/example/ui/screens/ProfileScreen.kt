@@ -16,12 +16,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.HabitViewModel
+import com.example.ui.theme.LocalAccentPalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,12 +59,25 @@ fun ProfileScreen(
             .padding(bottom = 70.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        // Gradient Title Header
+        Column(
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "Profile",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(MaterialTheme.colorScheme.primary, Color(0xFFB130FF))
+                    )
+                ),
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = "Customize your experience",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         // Identity Card
         Card(
@@ -134,6 +149,11 @@ fun ProfileScreen(
                             Icon(Icons.Default.Edit, contentDescription = "Edit Username", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         }
                     }
+                    Text(
+                        text = "Level ${1 + (session.totalXp / 100)} • Keep building your legacy",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -177,18 +197,31 @@ fun ProfileScreen(
             )
             HorizontalDivider(modifier = Modifier.padding(start = 48.dp))
             SettingsRow(icon = Icons.Default.Palette, title = "Accent Color") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     val colors = listOf("Blue", "Green", "Red", "Yellow")
                     val colorValues = listOf(Color(0xFF3B82F6), Color(0xFF10B981), Color(0xFFEF4444), Color(0xFFEDE655))
                     colors.forEachIndexed { i, name ->
                         Box(
                             modifier = Modifier
-                                .size(30.dp)
+                                .size(32.dp)
                                 .clip(CircleShape)
-                                .background(colorValues[i])
-                                .border(if (accentColor == name) 2.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                .clickable { viewModel.setAccentColor(name) }
-                        )
+                                .then(
+                                    if (accentColor == name) {
+                                        Modifier.border(2.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    } else {
+                                        Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    }
+                                )
+                                .clickable { viewModel.setAccentColor(name) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(if (accentColor == name) 22.dp else 28.dp)
+                                    .clip(CircleShape)
+                                    .background(colorValues[i])
+                            )
+                        }
                     }
                 }
             }
