@@ -19,6 +19,14 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    
+    // Size Optimization: Strip unused languages from AndroidX/Play Services
+    resourceConfigurations.addAll(listOf("en", "hi"))
+    
+    // Size Optimization: Strip emulator architectures (x86, x86_64) to save massive space
+    ndk {
+      abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+    }
   }
 
   signingConfigs {
@@ -44,17 +52,33 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       signingConfig = signingConfigs.getByName("release")
     }
+
+    // 'shareRelease' — a release-mode APK signed with the debug keystore.
+    // Use this to share APKs with friends: Run > assembleShareRelease
+    // It is NOT testOnly so it installs on any Android 7+ device with Unknown Sources enabled.
+    create("shareRelease") {
+      initWith(getByName("release"))
+      isCrunchPngs = false
+      isMinifyEnabled = true
+      isShrinkResources = true
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      // Sign with the local debug keystore — no upload key required
+      signingConfig = signingConfigs.getByName("debugConfig")
+      // IMPORTANT: disable testOnly so APK installs on non-developer devices
+      isTestCoverageEnabled = false
+    }
+
     debug {
-      // Use default debug keystore if local one is missing
+      // Sign with local debug keystore
       signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
   }
   kotlin {
-    jvmToolchain(11)
+    jvmToolchain(21)
   }
   buildFeatures {
     compose = true
@@ -95,19 +119,19 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  implementation(libs.play.services.ads)
+  // implementation(libs.play.services.ads)
   implementation(libs.androidx.biometric)
   implementation(libs.revenuecat.purchases)
   // implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
+  // implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
-  implementation(libs.okhttp)
+  // implementation(libs.logging.interceptor)
+  // implementation(libs.moshi.kotlin)
+  // implementation(libs.okhttp)
   // implementation(libs.play.services.location)
-  implementation(libs.retrofit)
+  // implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

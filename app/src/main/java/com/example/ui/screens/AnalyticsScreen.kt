@@ -90,12 +90,20 @@ fun AnalyticsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Main Title Header
-        Text(
-            text = "Analytics Hub",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Analytics ",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Hub",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
 
         // Aggregated Metrics Cards Grid (FlowRow)
         FlowRow(
@@ -182,15 +190,20 @@ fun AnalyticsScreen(
                         ) {
                             val total = categoryStats.values.sum().toFloat()
                             var startAngle = 0f
-                            val colors = listOf(
-                                Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFF8B5CF6),
-                                Color(0xFFEC4899), Color(0xFFF59E0B), Color(0xFF06B6D4)
-                            )
+                            fun getCategoryColor(category: String) = when(category) {
+                                "Health" -> Color(0xFF10B981)
+                                "Work" -> Color(0xFF8B5CF6)
+                                "Personal" -> Color(0xFF3B82F6)
+                                "Fitness" -> Color(0xFFEC4899)
+                                "Productivity" -> Color(0xFFF59E0B)
+                                "Wellness" -> Color(0xFF06B6D4)
+                                else -> Color(0xFF1DD75B)
+                            }
 
                             categoryStats.entries.forEachIndexed { i, entry ->
                                 val sweepAngle = (entry.value / total) * 360f
                                 drawArc(
-                                    color = colors[i % colors.size],
+                                    color = getCategoryColor(entry.key),
                                     startAngle = startAngle,
                                     sweepAngle = sweepAngle,
                                     useCenter = false,
@@ -208,17 +221,22 @@ fun AnalyticsScreen(
                             modifier = Modifier.weight(1.2f),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            val colors = listOf(
-                                Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFF8B5CF6),
-                                Color(0xFFEC4899), Color(0xFFF59E0B), Color(0xFF06B6D4)
-                            )
+                            fun getCategoryColor(category: String) = when(category) {
+                                "Health" -> Color(0xFF10B981)
+                                "Work" -> Color(0xFF8B5CF6)
+                                "Personal" -> Color(0xFF3B82F6)
+                                "Fitness" -> Color(0xFFEC4899)
+                                "Productivity" -> Color(0xFFF59E0B)
+                                "Wellness" -> Color(0xFF06B6D4)
+                                else -> Color(0xFF1DD75B)
+                            }
                             categoryStats.entries.forEachIndexed { i, entry ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         modifier = Modifier
                                             .size(10.dp)
                                             .clip(CircleShape)
-                                            .background(colors[i % colors.size])
+                                            .background(getCategoryColor(entry.key))
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
@@ -439,71 +457,6 @@ fun AnalyticsScreen(
             }
         }
 
-        // --- SECTION: Export Audit Logs / Reports ---
-        var showReportLockDialog by remember { mutableStateOf(false) }
-        var pendingExportType by remember { mutableStateOf("") } // "CSV" or "PDF"
-
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "Regulatory Compliance Exports",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                Text(
-                    text = "Generate and download historical audit spreadsheets or signed PDF documents for official analytics reporting.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Export CSV
-                    Button(
-                        onClick = {
-                            val csvFile = viewModel.exportReportAsCSV(context)
-                            shareFile(context, csvFile, "text/csv", "Share CSV")
-                            Toast.makeText(context, "CSV Export complete!", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.weight(1f).testTag("export_csv_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.BorderAll, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Export CSV", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-
-                    // Export PDF
-                    Button(
-                        onClick = {
-                            val pdfFile = viewModel.exportReportAsPDF(context)
-                            shareFile(context, pdfFile, "application/pdf", "Share PDF")
-                            Toast.makeText(context, "PDF Export complete!", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier.weight(1f).testTag("export_pdf_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                    ) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Export PDF", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
     }
 }
 

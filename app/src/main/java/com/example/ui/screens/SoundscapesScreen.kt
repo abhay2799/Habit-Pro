@@ -61,8 +61,8 @@ fun SoundscapesScreen(viewModel: HabitViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
-            .padding(bottom = 70.dp)
+            .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+            // No bottom padding — LazyColumn with weight(1f) pushes volume panel to bottom naturally
     ) {
         // ═══════════════════════════════
         // HEADER: Devlance Studio branding

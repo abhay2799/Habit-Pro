@@ -229,14 +229,6 @@ fun ProfileScreen(
 
         SettingsGroup(title = "Preferences") {
             SettingsDropdown(
-                icon = Icons.Default.Language,
-                title = "Language",
-                options = listOf("System Default", "English", "Hindi"),
-                selectedValue = language,
-                onValueChange = { viewModel.setAppLanguage(it) }
-            )
-            HorizontalDivider(modifier = Modifier.padding(start = 48.dp))
-            SettingsDropdown(
                 icon = Icons.Default.Sort,
                 title = "Dashboard Sorting",
                 options = listOf("Chronological", "Alphabetical", "Manual"),
@@ -285,29 +277,60 @@ fun ProfileScreen(
             }
         }
 
-        // Privacy Card
+        // Privacy Card - PERMANENT GREEN (not affected by accent color)
         Card(
             shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0A2E1A))
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(Color(0xFF0A2E1A), Color(0xFF0F3D22))
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .border(1.dp, Color(0xFF10B981).copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Shield,
-                    contentDescription = "Privacy Shield",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981).copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = "Privacy Shield",
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("100% Private & Secure", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            "100% Private & Secure",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
                     Text(
                         "Your habits and personal data stay right here on your phone. We don't use external cloud servers, meaning your progress is completely private and for your eyes only.",
                         fontSize = 12.sp,
-                        lineHeight = 16.sp
+                        lineHeight = 16.sp,
+                        color = Color.White.copy(alpha = 0.8f)
                     )
                 }
             }

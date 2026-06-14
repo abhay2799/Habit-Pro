@@ -156,10 +156,20 @@ class HabitViewModel(
     }
 
     // --- FEATURE 2: Water Tracker Widget Progress ---
-    private val _dailyWaterLogged = MutableStateFlow(prefs.getInt("water_logged_today", 0))
+    private val _dailyWaterLogged = MutableStateFlow(run {
+        // Reset water count if it's a new day
+        val storedDate = prefs.getString("water_last_date", "") ?: ""
+        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        if (storedDate != todayDate) {
+            prefs.edit().putInt("water_logged_today", 0).putString("water_last_date", todayDate).apply()
+            0
+        } else {
+            prefs.getInt("water_logged_today", 0)
+        }
+    })
     val dailyWaterLogged: StateFlow<Int> = _dailyWaterLogged.asStateFlow()
 
-    private val _dailyWaterGoal = MutableStateFlow(prefs.getInt("water_goal", 8))
+    private val _dailyWaterGoal = MutableStateFlow(prefs.getInt("water_goal", 10))
     val dailyWaterGoal: StateFlow<Int> = _dailyWaterGoal.asStateFlow()
 
     fun addWaterGlass() {
@@ -175,6 +185,12 @@ class HabitViewModel(
     fun setWaterGoal(goal: Int) {
         _dailyWaterGoal.value = goal
         prefs.edit().putInt("water_goal", goal).apply()
+    }
+
+    fun removeWaterGlass() {
+        val newVal = maxOf(0, _dailyWaterLogged.value - 1)
+        _dailyWaterLogged.value = newVal
+        prefs.edit().putInt("water_logged_today", newVal).apply()
     }
 
     fun resetWaterDaily() {
@@ -274,13 +290,22 @@ class HabitViewModel(
         return prefs.getString("habit_alarm_$habitId", "") ?: ""
     }
 
-    fun scheduleExactHabitAlarm(habitId: Long, habitName: String, hour: Int, minute: Int) {
-        prefs.edit().putString("habit_alarm_$habitId", String.format("%02d:%02d", hour, minute)).apply()
+    fun scheduleExactHabitAlarm(habitId: Long, habitName: String, hour: Int, minute: Int, alertType: String = "Notification") {
+        // Persist alarm time and metadata for BootReceiver to reschedule after reboot
+        prefs.edit()
+            .putString("habit_alarm_$habitId", String.format("%02d:%02d", hour, minute))
+            .putString("habit_name_$habitId", habitName)
+            .putString("habit_alert_type_$habitId", alertType)
+            .apply()
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
         val intent = Intent(context, com.example.notifications.HabitAlarmReceiver::class.java).apply {
-            putExtra("alarm_title", "⏱️ Time for $habitName!")
-            putExtra("alarm_message", "You scheduled a priority reminder. Focus on $habitName and preserve your streaks now!")
+            // Pass all required extras so receiver knows what type and whose alarm this is
+            putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_HABIT_ID, habitId)
+            putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_HABIT_NAME, habitName)
+            putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_ALERT_TYPE, alertType)
+            putExtra("alarm_title", if (alertType == "Alarm") "⏰ Alarm: $habitName!" else "🔔 Reminder: $habitName")
+            putExtra("alarm_message", "Don't break your streak! Time to log \"$habitName\".")
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -295,6 +320,7 @@ class HabitViewModel(
             set(Calendar.HOUR_OF_DAY, hour)
             set(Calendar.MINUTE, minute)
             set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
             if (timeInMillis <= System.currentTimeMillis()) {
                 add(Calendar.DAY_OF_MONTH, 1)
             }
@@ -314,7 +340,7 @@ class HabitViewModel(
                     pendingIntent
                 )
             }
-            Log.d("HabitViewModel", "Scheduled exact alarm for $habitName at $hour:$minute")
+            Log.d("HabitViewModel", "Scheduled [$alertType] alarm for '$habitName' at $hour:$minute")
         } catch (e: Exception) {
             Log.e("HabitViewModel", "Failed to set exact alarm", e)
         }
@@ -358,12 +384,15 @@ class HabitViewModel(
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
         val intent = Intent(context, com.example.notifications.HabitAlarmReceiver::class.java).apply {
+            putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_HABIT_ID, -1L)
+            putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_ALERT_TYPE, "Notification")
             putExtra("alarm_title", "📅 Daily Habit Check-In!")
             putExtra("alarm_message", "It's time to log your progress for today! Lock in your streaks and build consistency.")
+            putExtra("is_smart_notification", true)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             context,
-            9999, // Unique request code for global reminder
+            9999,
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -378,19 +407,28 @@ class HabitViewModel(
                 set(Calendar.HOUR_OF_DAY, hour)
                 set(Calendar.MINUTE, minute)
                 set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
                 if (timeInMillis <= System.currentTimeMillis()) {
                     add(Calendar.DAY_OF_MONTH, 1)
                 }
             }
 
             try {
-                alarmManager.setRepeating(
-                    android.app.AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    android.app.AlarmManager.INTERVAL_DAY,
-                    pendingIntent
-                )
-                Log.d("HabitViewModel", "Scheduled global daily reminder at $hour:$minute")
+                // Use setExactAndAllowWhileIdle — receiver reschedules itself for next day
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        android.app.AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setExact(
+                        android.app.AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                }
+                Log.d("HabitViewModel", "Scheduled exact global reminder at $hour:$minute")
             } catch (e: Exception) {
                 Log.e("HabitViewModel", "Failed to set global reminder alarm", e)
             }
@@ -400,10 +438,45 @@ class HabitViewModel(
         }
     }
 
+    // --- Metadata Parsing Helpers ---
+    fun getCleanDescription(description: String): String {
+        return description
+            .replace(Regex("\\[🎨[^\\]]*\\]"), "")
+            .replace(Regex("\\[🔔[^\\]]*\\]"), "")
+            .replace(Regex("\\[[^\\]]{1,4}\\]"), "") // emoji tags like [🏃‍♂️]
+            .trim()
+    }
+
+    fun getHabitAlertType(description: String): String {
+        val match = Regex("\\[🔔([^\\]]*)\\]").find(description)
+        return match?.groupValues?.get(1) ?: "None"
+    }
+
+    fun getHabitPalette(description: String): String {
+        val match = Regex("\\[🎨([^\\]]*)\\]").find(description)
+        return match?.groupValues?.get(1) ?: "Default"
+    }
+
+    fun getHabitEmoji(description: String): String {
+        // Match emoji-only tags (1-4 chars that aren't 🎨 or 🔔 prefixed)
+        val match = Regex("\\[([^🎨🔔][^\\]]{0,3})\\]").find(description)
+        return match?.groupValues?.get(1) ?: "Default"
+    }
+
     // --- Habits CRUD Actions ---
-    fun addHabit(name: String, description: String, category: String, frequency: String, isPremium: Boolean, xpPenalty: Int = 10) {
+    fun addHabit(
+        name: String,
+        description: String,
+        category: String,
+        frequency: String,
+        isPremium: Boolean,
+        xpPenalty: Int = 10,
+        reminderHour: Int = -1,
+        reminderMinute: Int = -1,
+        alertType: String = "None"
+    ) {
         viewModelScope.launch {
-            repository.addHabit(
+            val newId = repository.addHabit(
                 Habit(
                     name = name,
                     description = description,
@@ -413,6 +486,29 @@ class HabitViewModel(
                     isPremiumOnly = isPremium
                 )
             )
+            // Schedule alarm immediately with the new habit's ID
+            // (Previously read from prefs which was never set for new habits — now fixed)
+            if (alertType != "None" && reminderHour >= 0 && reminderMinute >= 0) {
+                scheduleExactHabitAlarm(newId, name, reminderHour, reminderMinute, alertType)
+                Log.d("HabitViewModel", "Scheduled [$alertType] for new habit '$name' (id=$newId) at $reminderHour:$reminderMinute")
+            }
+        }
+    }
+
+    fun updateHabitEntity(habit: Habit) {
+        viewModelScope.launch {
+            repository.updateHabit(habit)
+            // Schedule alarm/notification based on alert type if time is set
+            val alertType = getHabitAlertType(habit.description)
+            val alarmTime = getHabitAlarmTime(habit.id)
+            if (alertType != "None" && alarmTime.isNotBlank()) {
+                val parts = alarmTime.split(":")
+                if (parts.size == 2) {
+                    scheduleExactHabitAlarm(habit.id, habit.name, parts[0].toIntOrNull() ?: 8, parts[1].toIntOrNull() ?: 0, alertType)
+                }
+            } else if (alertType == "None") {
+                cancelExactHabitAlarm(habit.id)
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.app.Activity
 import android.app.AlarmManager
+import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -37,6 +38,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import com.example.data.model.Habit
 import com.example.ui.HabitViewModel
 import com.example.ui.theme.LocalAccentPalette
@@ -73,12 +76,13 @@ fun DashboardScreen(
 
     // Dialog state
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingHabit by remember { mutableStateOf<Habit?>(null) }
     var selectedCategoryFilter by remember { mutableStateOf("All") }
 
     val isDarkMode by viewModel.isDarkMode.collectAsState()
 
     val todayStr = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
-    val categories = listOf("All", "Health", "Fitness", "Work", "Personal")
+    val categories = listOf("All", "Health", "Work", "Personal", "Fitness", "Productivity", "Wellness")
 
     // --- MONETIZATION & CONTEXT LOCKS STATE ---
     var isStudioUnlockedSession by remember { mutableStateOf(false) }
@@ -159,23 +163,27 @@ fun DashboardScreen(
         Scaffold(
             modifier = modifier.fillMaxSize(),
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = "Add Habit", tint = Color.White) },
-                text = { Text("Add New Habit", color = Color.White, fontWeight = FontWeight.Bold) },
-                shape = RoundedCornerShape(24.dp),
-                containerColor = Color.Transparent,
-                contentColor = Color.White,
+            Box(
                 modifier = Modifier
                     .testTag("add_habit_fab")
                     .padding(bottom = 10.dp)
+                    .clip(RoundedCornerShape(24.dp))
                     .background(
                         brush = Brush.horizontalGradient(
                             colors = listOf(MaterialTheme.colorScheme.primary, Color(0xFFB130FF))
-                        ),
-                        shape = RoundedCornerShape(24.dp)
+                        )
                     )
-            )
+                    .clickable { showAddDialog = true }
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Habit", tint = Color.White, modifier = Modifier.size(22.dp))
+                    Text("Add New Habit", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
         }
     ) { paddingValues ->
         Box(
@@ -193,7 +201,7 @@ fun DashboardScreen(
             ) {
                 // Interactive welcoming identity
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         // Header
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -203,10 +211,16 @@ fun DashboardScreen(
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "Hello, ${userSession.username}",
+                                        text = "Hello, ",
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = userSession.username,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("👋", fontSize = 24.sp)
@@ -220,7 +234,8 @@ fun DashboardScreen(
                             }
 
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                // Streak pill
+                                // Streak pill - use actual max streak
+                                val maxStreakForPill = if (habits.isEmpty()) 0 else habits.maxOf { it.currentStreak }
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(16.dp))
@@ -236,7 +251,7 @@ fun DashboardScreen(
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "0 Day Streak",
+                                            text = "$maxStreakForPill Day Streak",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onBackground
@@ -271,178 +286,112 @@ fun DashboardScreen(
                         }
 
                         // Top Cards Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        val waterLogged by viewModel.dailyWaterLogged.collectAsState()
+                        val waterGoal by viewModel.dailyWaterGoal.collectAsState()
+                        val waterProgress by animateFloatAsState(
+                            targetValue = (waterLogged.toFloat() / waterGoal.toFloat()).coerceIn(0f, 1f),
+                            animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                            label = "waterProgress"
+                        )
+
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            modifier = Modifier.fillMaxWidth().height(180.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
                         ) {
-                            val maxStreak = if (habits.isEmpty()) 0 else habits.maxOf { it.currentStreak }
-                            // Current Streak Card
-                            Card(
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                modifier = Modifier.weight(1.2f).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                            Row(
+                                modifier = Modifier.fillMaxSize().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
+                                Column(
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
                                         Text(
-                                            text = "CURRENT STREAK",
-                                            fontSize = 9.sp,
+                                            text = "DAILY HYDRATION",
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF21D4D4),
                                             letterSpacing = 1.sp
                                         )
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFF231236))
-                                                .padding(horizontal = 6.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = "+ PRO STREAK",
-                                                color = Color(0xFFC882FF),
-                                                fontSize = 8.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Row(verticalAlignment = Alignment.Bottom) {
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = "$maxStreak",
-                                            fontSize = 28.sp,
+                                            text = "${waterLogged}/${waterGoal} Glasses",
+                                            fontSize = 24.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Text(
-                                            text = "-Day Streak",
-                                            fontSize = 20.sp,
-                                            fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    
-                                    // Visual progression line
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Hexagon, contentDescription=null, tint=MaterialTheme.colorScheme.onSurface, modifier=Modifier.size(20.dp))
-                                        Box(modifier = Modifier.width(30.dp).height(1.dp).background(MaterialTheme.colorScheme.outline))
-                                        Icon(Icons.Default.Lock, contentDescription=null, tint=MaterialTheme.colorScheme.outline, modifier=Modifier.size(16.dp))
-                                        Box(modifier = Modifier.width(30.dp).height(1.dp).background(MaterialTheme.colorScheme.outline))
-                                        Icon(Icons.Default.Lock, contentDescription=null, tint=MaterialTheme.colorScheme.outline, modifier=Modifier.size(16.dp))
+
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { viewModel.addWaterGlass() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E68FF)),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Icon(Icons.Default.WaterDrop, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Log Drink", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        
+                                        if (waterLogged > 0) {
+                                            OutlinedButton(
+                                                onClick = { viewModel.removeWaterGlass() },
+                                                shape = RoundedCornerShape(12.dp),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                                            ) {
+                                                Icon(Icons.Default.Undo, contentDescription = "Undo", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
                                     }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    val habitsLeft = habits.count { completions[it.id]?.contains(todayStr) != true }
-                                    Text(
-                                        text = "$habitsLeft more trackers to",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "secure your streak flame",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = "today! 🚀",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-
-                            // Hydration Card
-                            val waterLogged by viewModel.dailyWaterLogged.collectAsState()
-                            val waterGoal by viewModel.dailyWaterGoal.collectAsState()
-                            Card(
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                modifier = Modifier.weight(0.8f).height(190.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp)).clickable { viewModel.addWaterGlass() }
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp).fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "DAILY HYDRATION",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF21D4D4),
-                                        letterSpacing = 1.sp
-                                    )
                                     
-                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(72.dp)) {
-                                        CircularProgressIndicator(
-                                            progress = { (waterLogged.toFloat() / waterGoal.toFloat()).coerceAtMost(1f) },
-                                            modifier = Modifier.fillMaxSize(),
-                                            strokeWidth = 6.dp,
-                                            color = Color(0xFF2E68FF),
-                                            trackColor = Color(0xFF0A182E)
+                                    if (waterLogged > 0) {
+                                        Text(
+                                            text = "Reset all",
+                                            fontSize = 10.sp,
+                                            color = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.clickable { viewModel.resetWaterDaily() }.padding(4.dp)
                                         )
+                                    }
+                                }
+                                
+                                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                                    CircularProgressIndicator(
+                                        progress = { waterProgress },
+                                        modifier = Modifier.fillMaxSize(),
+                                        strokeWidth = 12.dp,
+                                        color = Color(0xFF2E68FF),
+                                        trackColor = Color(0xFF0A182E),
+                                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                                    )
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                         Icon(
                                             imageVector = Icons.Default.WaterDrop,
                                             contentDescription = null,
                                             tint = Color(0xFF2E68FF),
-                                            modifier = Modifier.size(24.dp)
+                                            modifier = Modifier.size(36.dp)
                                         )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(if (waterLogged >= waterGoal) Color(0xFF0F2615) else Color(0xFF0F2615))
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        ) {
+                                            Text(
+                                                text = if (waterLogged >= waterGoal) "✓ Complete" else "● In Progress",
+                                                color = Color(0xFF1DD75B),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF0F2615))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = "● In Progress",
-                                            color = Color(0xFF1DD75B),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    
-                                    Text(
-                                        text = "1 Glass = 250ml",
-                                        fontSize = 10.sp,
-                                        color = Color.Gray
-                                    )
                                 }
                             }
                         }
                     }
-                }
-
-                // Search Box container
-                item {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { viewModel.updateSearchQuery(it) },
-                        placeholder = { Text("Fuzzy search habit cards, mood tags...", style = MaterialTheme.typography.bodyMedium) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear Search")
-                                }
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("search_text_input"),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.background,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.background,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        singleLine = true
-                    )
                 }
 
                 // Category select tab pills row
@@ -493,15 +442,7 @@ fun DashboardScreen(
                                 }
                             }
                         }
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 4.dp)
-                                .clickable { showAddDialog = true }
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add", tint = Color.Gray, modifier = Modifier.size(20.dp))
-                        }
+                        // Add icon removed
                     }
                 }
 
@@ -620,6 +561,7 @@ fun DashboardScreen(
                             isCompleted = isCompletedToday,
                             onCheckToggle = { viewModel.completeHabit(habit, todayStr) },
                             onDelete = { viewModel.deleteHabit(habit) },
+                            onEdit = { editingHabit = it },
                             viewModel = viewModel
                         )
                     }
@@ -681,324 +623,57 @@ fun DashboardScreen(
             }
 
 
-    // Modal dialogue to generate habits
+    // Modal dialogue to ADD new habit
     if (showAddDialog) {
-        var name by remember { mutableStateOf("") }
-        var desc by remember { mutableStateOf("") }
-        var category by remember { mutableStateOf("Fitness") }
-        var freq by remember { mutableStateOf("Daily") }
-        var xpPoints by remember { mutableStateOf("15") }
-        val categoryOptions = listOf("Health", "Work", "Personal", "Fitness", "Productivity", "Wellness")
-
-        // Custom styling modifiers
-        var selectedPalette by remember { mutableStateOf("Default") }
-        var selectedEmoji by remember { mutableStateOf("Default") }
-        var alertType by remember { mutableStateOf("None") }
-        val palettes = remember { mutableStateListOf("Default", "Sapphire Blue", "Emerald Green", "Velvet Amethyst", "Rose Pink", "Amber Orange") }
-        val emojis = listOf("Default", "🏃‍♂️", "🧘‍♂️", "📚", "💡", "💧", "🍳", "🧠", "☕", "🔋")
-
-        var showCustomThemeDialog by remember { mutableStateOf(false) }
-        var customThemeInput by remember { mutableStateOf("") }
-        var showCustomGenreDialog by remember { mutableStateOf(false) }
-        var customGenreInput by remember { mutableStateOf("") }
-
-        // --- FEATURE 8: Flexible Days Scheduler Option ---
-        var customizeWeeklyDays by remember { mutableStateOf(false) }
-        val daysChecklist = remember { mutableStateListOf("Mon", "Wed", "Fri") }
-        val daysOfWeek = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = {
-                Text(
-                    text = "Launch Habit Tracker",
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+        HabitFormDialog(
+            viewModel = viewModel,
+            editHabit = null,
+            onDismiss = { showAddDialog = false },
+            onSave = { name, complexDesc, category, finalFreq, xpPoints, reminderHour, reminderMinute ->
+                // Extract alertType from the encoded description before saving
+                val alertType = viewModel.getHabitAlertType(complexDesc)
+                viewModel.addHabit(
+                    name = name,
+                    description = complexDesc,
+                    category = category,
+                    frequency = finalFreq,
+                    isPremium = false,
+                    xpPenalty = xpPoints,
+                    reminderHour = reminderHour,
+                    reminderMinute = reminderMinute,
+                    alertType = alertType
                 )
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Habit Name (e.g. Wake up at 6AM)") },
-                        modifier = Modifier.fillMaxWidth().testTag("add_habit_name_input"),
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
-                    )
-
-                    OutlinedTextField(
-                        value = desc,
-                        onValueChange = { desc = it },
-                        label = { Text("Short Description") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(10.dp)
-                    )
-
-                    // Color Palette Selector (Custom Styling feature)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎨 Theme:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { showCustomThemeDialog = true }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Add, contentDescription = "Add custom theme", modifier = Modifier.size(16.dp))
-                        }
-                    }
-                    ScrollableTabRow(
-                        selectedTabIndex = palettes.indexOf(selectedPalette).coerceAtLeast(0),
-                        edgePadding = 0.dp,
-                        divider = {},
-                        indicator = {}
-                    ) {
-                        palettes.forEach { item ->
-                            val isChosen = selectedPalette == item
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isChosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable { selectedPalette = item }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(item, color = if (isChosen) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                            }
-                        }
-                    }
-
-                    // Custom card emoji icon selector
-                    Text("⭐ Emoji:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                    ScrollableTabRow(
-                        selectedTabIndex = emojis.indexOf(selectedEmoji).coerceAtLeast(0),
-                        edgePadding = 0.dp,
-                        divider = {},
-                        indicator = {}
-                    ) {
-                        emojis.forEach { iconChar ->
-                            val isChosen = selectedEmoji == iconChar
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isChosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable { selectedEmoji = iconChar }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(iconChar, color = if (isChosen) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                            }
-                        }
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Genre Category:", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { showCustomGenreDialog = true }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Default.Add, contentDescription = "Add custom genre", modifier = Modifier.size(16.dp))
-                        }
-                    }
-                    ScrollableTabRow(
-                        selectedTabIndex = categoryOptions.indexOf(category).coerceAtLeast(0),
-                        edgePadding = 0.dp,
-                        divider = {},
-                        indicator = {}
-                    ) {
-                        categoryOptions.forEach { cat ->
-                            val sel = category == cat
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                    .clickable { category = cat }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(cat, color = if (sel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    // Flexible Scheduler switch & checkbox
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("📅 Custom Days Week Schedule Frequencies", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = customizeWeeklyDays,
-                            onCheckedChange = { customizeWeeklyDays = it }
-                        )
-                    }
-
-                    if (customizeWeeklyDays) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            maxItemsInEachRow = 4,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            daysOfWeek.forEach { dayLabel ->
-                                val isChecked = daysChecklist.contains(dayLabel)
-                                FilterChip(
-                                    selected = isChecked,
-                                    onClick = {
-                                        if (isChecked) daysChecklist.remove(dayLabel) else daysChecklist.add(dayLabel)
-                                    },
-                                    label = { Text(dayLabel, fontSize = 10.sp) }
-                                )
-                            }
-                        }
-                        freq = "Schedule: " + daysChecklist.joinToString(", ")
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (!customizeWeeklyDays) {
-                            OutlinedTextField(
-                                value = freq,
-                                onValueChange = { freq = it },
-                                label = { Text("Frequency") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                        }
-                        // Alert selection box
-                        var alertExpanded by remember { mutableStateOf(false) }
-                        Box(modifier = Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = alertType,
-                                onValueChange = { },
-                                readOnly = true,
-                                label = { Text("🔔 Alert") },
-                                modifier = Modifier.fillMaxWidth().clickable { alertExpanded = true },
-                                trailingIcon = { Icon(Icons.Default.ArrowDropDown, "Select Alert") },
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            DropdownMenu(
-                                expanded = alertExpanded,
-                                onDismissRequest = { alertExpanded = false }
-                            ) {
-                                listOf("None", "Notification Alert", "Alarm").forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option) },
-                                        onClick = {
-                                            alertType = option
-                                            alertExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            // Smart injection prefix to pack customization without breaking migrations
-                            val complexDesc = buildString {
-                                if (selectedPalette != "Default") {
-                                    append("[🎨$selectedPalette]")
-                                }
-                                if (selectedEmoji != "Default") {
-                                    append("[$selectedEmoji]")
-                                }
-                                if (alertType != "None") {
-                                    append("[🔔$alertType]")
-                                }
-                                append(desc)
-                            }
-
-                            val finalFreq = if (customizeWeeklyDays) {
-                                "Schedule: " + daysChecklist.joinToString(", ")
-                            } else {
-                                freq
-                            }
-
-                            viewModel.addHabit(
-                                name = name,
-                                description = complexDesc,
-                                category = category,
-                                frequency = finalFreq,
-                                isPremium = false,
-                                xpPenalty = xpPoints.toIntOrNull() ?: 15
-                            )
-                            showAddDialog = false
-                        }
-                    },
-                    modifier = Modifier.testTag("submit_habit_button")
-                ) {
-                    Text("Launch")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("Cancel")
-                }
-            },
-            shape = RoundedCornerShape(20.dp)
+                showAddDialog = false
+            }
         )
+    }
 
-        // Custom Theme Input Dialog
-        if (showCustomThemeDialog) {
-            AlertDialog(
-                onDismissRequest = { showCustomThemeDialog = false },
-                title = { Text("Add Custom Theme") },
-                text = {
-                    OutlinedTextField(
-                        value = customThemeInput,
-                        onValueChange = { customThemeInput = it },
-                        label = { Text("Color Name") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        if (customThemeInput.isNotBlank()) {
-                            palettes.add(customThemeInput)
-                            selectedPalette = customThemeInput
-                        }
-                        showCustomThemeDialog = false
-                    }) { Text("Add") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showCustomThemeDialog = false }) { Text("Cancel") }
+    // Modal dialogue to EDIT existing habit
+    if (editingHabit != null) {
+        val habit = editingHabit!!
+        HabitFormDialog(
+            viewModel = viewModel,
+            editHabit = habit,
+            onDismiss = { editingHabit = null },
+            onSave = { name, complexDesc, category, finalFreq, xpPoints, reminderHour, reminderMinute ->
+                val updatedHabit = habit.copy(
+                    name = name,
+                    description = complexDesc,
+                    category = category,
+                    frequency = finalFreq,
+                    xpReward = xpPoints
+                )
+                viewModel.updateHabitEntity(updatedHabit)
+                // Extract alertType from encoded description and schedule with correct type
+                val alertType = viewModel.getHabitAlertType(complexDesc)
+                if (alertType != "None" && reminderHour >= 0 && reminderMinute >= 0) {
+                    viewModel.scheduleExactHabitAlarm(habit.id, name, reminderHour, reminderMinute, alertType)
+                } else if (alertType == "None") {
+                    viewModel.cancelExactHabitAlarm(habit.id)
                 }
-            )
-        }
-
-        // Custom Genre Input Dialog
-        if (showCustomGenreDialog) {
-            AlertDialog(
-                onDismissRequest = { showCustomGenreDialog = false },
-                title = { Text("Add Custom Genre") },
-                text = {
-                    OutlinedTextField(
-                        value = customGenreInput,
-                        onValueChange = { customGenreInput = it },
-                        label = { Text("Genre") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    Button(onClick = {
-                        if (customGenreInput.isNotBlank()) {
-                            // Can't dynamically modify categoryOptions easily since it's a fixed list inside showAddDialog state in original code
-                            // I will just set category = customGenreInput
-                            category = customGenreInput
-                        }
-                        showCustomGenreDialog = false
-                    }) { Text("Use Genre") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showCustomGenreDialog = false }) { Text("Cancel") }
-                }
-            )
-        }
+                editingHabit = null
+            }
+        )
     }
 
 
@@ -1012,52 +687,487 @@ fun DashboardScreen(
 }
 
 
+// ==========================================
+// REUSABLE HABIT FORM DIALOG (Add + Edit)
+// ==========================================
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun HabitFormDialog(
+    viewModel: HabitViewModel,
+    editHabit: Habit?,
+    onDismiss: () -> Unit,
+    onSave: (name: String, complexDesc: String, category: String, freq: String, xpPoints: Int, reminderHour: Int, reminderMinute: Int) -> Unit
+) {
+    val context = LocalContext.current
+    val isEditing = editHabit != null
+
+    // Pre-fill values for editing
+    var name by remember { mutableStateOf(editHabit?.name ?: "") }
+    var desc by remember { mutableStateOf(if (editHabit != null) viewModel.getCleanDescription(editHabit.description) else "") }
+    var category by remember { mutableStateOf(editHabit?.category ?: "Fitness") }
+    var freq by remember { mutableStateOf(editHabit?.frequency ?: "Daily") }
+    var xpPoints by remember { mutableStateOf((editHabit?.xpReward ?: 15).toString()) }
+    val categoryOptions = listOf("Health", "Work", "Personal", "Fitness", "Productivity", "Wellness")
+
+    // Custom styling modifiers
+    var selectedPalette by remember { mutableStateOf(if (editHabit != null) viewModel.getHabitPalette(editHabit.description) else "Default") }
+    var selectedEmoji by remember { mutableStateOf(if (editHabit != null) viewModel.getHabitEmoji(editHabit.description) else "Default") }
+    var alertType by remember { mutableStateOf(if (editHabit != null) viewModel.getHabitAlertType(editHabit.description) else "None") }
+    val palettes = remember { mutableStateListOf("Default", "Sapphire Blue", "Emerald Green", "Velvet Amethyst", "Rose Pink", "Amber Orange") }
+    val emojis = listOf("Default", "🏃‍♂️", "🧘‍♂️", "📚", "💡", "💧", "🍳", "🧠", "☕", "🔋")
+
+    var showCustomThemeDialog by remember { mutableStateOf(false) }
+    var customThemeInput by remember { mutableStateOf("") }
+
+    // --- Flexible Days Scheduler Option ---
+    var customizeWeeklyDays by remember { mutableStateOf(editHabit?.frequency?.startsWith("Schedule:") == true) }
+    val daysChecklist = remember { 
+        val initial = if (editHabit?.frequency?.startsWith("Schedule:") == true) {
+            editHabit.frequency.removePrefix("Schedule: ").split(", ").filter { it.isNotBlank() }.toMutableList()
+        } else {
+            mutableListOf("Mon", "Wed", "Fri")
+        }
+        mutableStateListOf<String>().also { it.addAll(initial) }
+    }
+    val daysOfWeek = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+    // Reminder time picker state
+    val existingAlarmTime = if (editHabit != null) viewModel.getHabitAlarmTime(editHabit.id) else ""
+    var reminderHour by remember { mutableStateOf(if (existingAlarmTime.isNotBlank()) existingAlarmTime.split(":").getOrNull(0)?.toIntOrNull() ?: -1 else -1) }
+    var reminderMinute by remember { mutableStateOf(if (existingAlarmTime.isNotBlank()) existingAlarmTime.split(":").getOrNull(1)?.toIntOrNull() ?: -1 else -1) }
+
+    val isDark = false // Forced light mode for popup
+    val accentColor by viewModel.accentColor.collectAsState()
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        com.example.ui.theme.MyApplicationTheme(isDarkMode = false, accentColor = accentColor) {
+            val dialogWindowProvider = androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider
+            dialogWindowProvider?.window?.let { window ->
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.setDimAmount(0.45f)
+            }
+
+            Surface(
+                color = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth(0.92f)
+            ) {
+                Box {
+            // Background Layer for Glassmorphism
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(28.dp))
+                    .graphicsLayer {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                            renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                                50f, 50f, android.graphics.Shader.TileMode.CLAMP
+                            ).asComposeRenderEffect()
+                        }
+                    }
+                    .background(
+                        Brush.verticalGradient(
+                            colors = if (isDark) {
+                                listOf(
+                                    Color(0xFF111116).copy(alpha = 0.96f),
+                                    Color(0xFF000000).copy(alpha = 0.94f)
+                                )
+                            } else {
+                                listOf(
+                                    Color(0xFFFFFFFF).copy(alpha = 0.98f),
+                                    Color(0xFFF1F5F9).copy(alpha = 0.96f)
+                                )
+                            }
+                        )
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            colors = if (isDark) {
+                                listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))
+                            } else {
+                                listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.3f))
+                            }
+                        ),
+                        shape = RoundedCornerShape(28.dp)
+                    )
+            )
+
+            // Content Layer
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Title
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isEditing) Icons.Default.Edit else Icons.Default.Add,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = if (isEditing) "Edit Habit" else "Create New Habit",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isEditing) "Modify your habit details" else "Build a new daily ritual",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Scrollable form content
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                // ── Name & Description ──
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Habit Name") },
+                    placeholder = { Text("e.g. Wake up at 6AM", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                    modifier = Modifier.fillMaxWidth().testTag("add_habit_name_input"),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Default.Label, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+
+                OutlinedTextField(
+                    value = desc,
+                    onValueChange = { desc = it },
+                    label = { Text("Description") },
+                    placeholder = { Text("Brief description of your habit", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // ── Category ──
+                Text("📂 Category", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    categoryOptions.forEach { cat ->
+                        val sel = category == cat
+                        FilterChip(
+                            selected = sel,
+                            onClick = { category = cat },
+                            label = { Text(cat, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal) },
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // ── Schedule ──
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("📅 Custom Weekly Schedule", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Switch(
+                        checked = customizeWeeklyDays,
+                        onCheckedChange = { customizeWeeklyDays = it }
+                    )
+                }
+
+                if (customizeWeeklyDays) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        maxItemsInEachRow = 4,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        daysOfWeek.forEach { dayLabel ->
+                            val isChecked = daysChecklist.contains(dayLabel)
+                            FilterChip(
+                                selected = isChecked,
+                                onClick = {
+                                    if (isChecked) daysChecklist.remove(dayLabel) else daysChecklist.add(dayLabel)
+                                },
+                                label = { Text(dayLabel, fontSize = 10.sp) },
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                    freq = "Schedule: " + daysChecklist.joinToString(", ")
+                }
+
+                if (!customizeWeeklyDays) {
+                    OutlinedTextField(
+                        value = freq,
+                        onValueChange = { freq = it },
+                        label = { Text("Frequency") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // ── Reminders & Alerts ──
+                Text(
+                    "🔔 Reminder & Alert",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // Alert type — clear segmented buttons (None / Notification / Alarm)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    listOf(
+                        Triple("None", Icons.Default.NotificationsOff, "Off"),
+                        Triple("Notification", Icons.Default.Notifications, "Notif"),
+                        Triple("Alarm", Icons.Default.Alarm, "Alarm")
+                    ).forEachIndexed { idx, (value, icon, label) ->
+                        val isSelected = alertType == value
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else Color.Transparent
+                                )
+                                .clickable { alertType = value }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = icon,
+                                    contentDescription = value,
+                                    tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = label,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (idx < 2) {
+                            Box(modifier = Modifier.width(1.dp).height(44.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                        }
+                    }
+                }
+
+                // Time picker — only visible when alert is active
+                if (alertType != "None") {
+                    // Display selected time or prompt
+                    val timeDisplay = if (reminderHour >= 0 && reminderMinute >= 0) {
+                        val amPm = if (reminderHour < 12) "AM" else "PM"
+                        val h12 = when {
+                            reminderHour == 0 -> 12
+                            reminderHour > 12 -> reminderHour - 12
+                            else -> reminderHour
+                        }
+                        String.format("%d:%02d %s", h12, reminderMinute, amPm)
+                    } else null
+
+                    OutlinedButton(
+                        onClick = {
+                            val hour = if (reminderHour >= 0) reminderHour else 8
+                            val minute = if (reminderMinute >= 0) reminderMinute else 0
+                            TimePickerDialog(
+                                context,
+                                { _, h, m ->
+                                    reminderHour = h
+                                    reminderMinute = m
+                                    if (editHabit != null) {
+                                        viewModel.scheduleExactHabitAlarm(editHabit.id, editHabit.name, h, m, alertType)
+                                    }
+                                },
+                                hour,
+                                minute,
+                                false // AM/PM format
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.5.dp,
+                            if (timeDisplay != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.AccessTime,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = if (timeDisplay != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (timeDisplay != null) "⏰ $timeDisplay" else "Tap to set time (AM/PM)",
+                                fontSize = 14.sp,
+                                fontWeight = if (timeDisplay != null) FontWeight.Bold else FontWeight.Normal,
+                                color = if (timeDisplay != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    if (reminderHour < 0) {
+                        Text(
+                            text = "⚠️ Please set a time for your ${alertType.lowercase()} to activate",
+                            fontSize = 11.sp,
+                            color = Color(0xFFF59E0B),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            } // end scrollable column
+
+                // Buttons row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (name.isNotBlank()) {
+                                val complexDesc = buildString {
+                                    if (selectedPalette != "Default") {
+                                        append("[🎨$selectedPalette]")
+                                    }
+                                    if (selectedEmoji != "Default") {
+                                        append("[$selectedEmoji]")
+                                    }
+                                    if (alertType != "None") {
+                                        append("[🔔$alertType]")
+                                    }
+                                    append(desc)
+                                }
+
+                                val finalFreq = if (customizeWeeklyDays) {
+                                    "Schedule: " + daysChecklist.joinToString(", ")
+                                } else {
+                                    freq
+                                }
+
+                                onSave(name, complexDesc, category, finalFreq, xpPoints.toIntOrNull() ?: 15, reminderHour, reminderMinute)
+                            }
+                        },
+                        modifier = Modifier.testTag("submit_habit_button"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isEditing) Icons.Default.Save else Icons.Default.RocketLaunch,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isEditing) "Save Changes" else "Create Habit", fontWeight = FontWeight.Bold)
+                    }
+                }
+            } // end outer Column
+        } // end Box
+        } // end Surface
+        } // end MyApplicationTheme
+    } // end Dialog
+}
+
+
 @Composable
 fun HabitItemCard(
     habit: Habit,
     isCompleted: Boolean,
     onCheckToggle: () -> Unit,
     onDelete: () -> Unit,
+    onEdit: (Habit) -> Unit,
     viewModel: HabitViewModel
 ) {
-    val completedCount = 0 // Placeholder logic for Micro-Step
-    
     val categoryColor = when (habit.category) {
-        "Health" -> Color(0xFF1DD75B)
-        "Fitness" -> Color(0xFFF43F5E)
-        "Work" -> Color(0xFFC882FF)
-        "Personal" -> Color(0xFF1982FC)
-        "Morning Routine" -> Color(0xFFF59E0B)
-        else -> Color(0xFF2E68FF)
+        "Health" -> Color(0xFF10B981)
+        "Work" -> Color(0xFF8B5CF6)
+        "Personal" -> Color(0xFF3B82F6)
+        "Fitness" -> Color(0xFFEC4899)
+        "Productivity" -> Color(0xFFF59E0B)
+        "Wellness" -> Color(0xFF06B6D4)
+        else -> Color(0xFF1DD75B)
     }
 
     val isDark = isSystemInDarkTheme()
-    val categoryContainer = when (habit.category) {
-        "Health" -> if (isDark) Color(0xFF0F2615) else Color(0xFFE6F7EB)
-        "Fitness" -> if (isDark) Color(0xFF2B0F15) else Color(0xFFFCE8EB)
-        "Work" -> if (isDark) Color(0xFF1D0E29) else Color(0xFFF3E8FC)
-        "Personal" -> if (isDark) Color(0xFF0A182E) else Color(0xFFE6F0FC)
-        "Morning Routine" -> if (isDark) Color(0xFF26190B) else Color(0xFFFCF3E6)
-        else -> if (isDark) Color(0xFF0A182E) else Color(0xFFE6F0FC)
-    }
+    val categoryContainer = categoryColor.copy(alpha = if (isDark) 0.15f else 0.1f)
 
     val dynamicIcon = when (habit.category) {
         "Health" -> Icons.Default.DirectionsRun
         "Fitness" -> Icons.Default.FitnessCenter
         "Work" -> Icons.Default.Work
         "Personal" -> Icons.Default.MenuBook
-        "Morning Routine" -> Icons.Default.WbSunny
+        "Productivity" -> Icons.Default.TrendingUp
+        "Wellness" -> Icons.Default.SelfImprovement
         else -> Icons.Default.Star
     }
 
+    // Clean description for display (strip metadata prefixes)
+    val cleanDescription = viewModel.getCleanDescription(habit.description)
+
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+        ),
         modifier = Modifier
             .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
             .testTag("habit_card_${habit.id}")
-            .clickable { /* Expand logic if any */ }
+            .clickable { onEdit(habit) }
     ) {
         Row(
             modifier = Modifier
@@ -1099,7 +1209,7 @@ fun HabitItemCard(
                     Spacer(modifier = Modifier.height(2.dp))
                     
                     Text(
-                        text = habit.description.ifBlank { "Complete your habit everyday." },
+                        text = cleanDescription.ifBlank { "Complete your habit everyday." },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -1127,33 +1237,42 @@ fun HabitItemCard(
                             )
                         }
 
-                        // Micro-Step
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
+                        // Micro-Step — clean text only, no distracting box background
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (isCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isCompleted) Color(0xFF1DD75B) else MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "Micro-Step 0/3",
+                                text = if (isCompleted) "Done today" else "Pending",
                                 fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (isCompleted) Color(0xFF1DD75B) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isCompleted) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                     }
                 }
             }
 
-            // Right Action Elements (More Vert + Check Circle)
+            // Right Action Elements (Delete button + Check Circle)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Options",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp).clickable { onDelete() }
-                )
+                // Delete button - replaces confusing MoreVert
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Habit",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
                 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 
                 IconButton(
                     onClick = onCheckToggle,

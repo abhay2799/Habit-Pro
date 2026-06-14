@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -22,7 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -75,6 +79,33 @@ class MainActivity : ComponentActivity() {
 
             val isDarkMode by viewModel.isDarkMode.collectAsState()
             val accentColor by viewModel.accentColor.collectAsState()
+            val appLanguage by viewModel.appLanguage.collectAsState()
+
+            // Apply language locale — only recreate when user actively changes it, NOT on first launch
+            val isFirstComposition = remember { mutableStateOf(true) }
+            LaunchedEffect(appLanguage) {
+                val locale = when (appLanguage) {
+                    "Hindi" -> java.util.Locale("hi")
+                    "English" -> java.util.Locale("en")
+                    else -> java.util.Locale.getDefault()
+                }
+                val config = Configuration(context.resources.configuration)
+                config.setLocale(locale)
+                @Suppress("DEPRECATION")
+                context.resources.updateConfiguration(config, context.resources.displayMetrics)
+                val appConfig = Configuration(context.applicationContext.resources.configuration)
+                appConfig.setLocale(locale)
+                @Suppress("DEPRECATION")
+                context.applicationContext.resources.updateConfiguration(appConfig, context.applicationContext.resources.displayMetrics)
+
+                if (isFirstComposition.value) {
+                    // Skip recreate on first launch — locale is already applied above
+                    isFirstComposition.value = false
+                } else {
+                    // User changed language in settings — recreate so string resources reload
+                    (context as? android.app.Activity)?.recreate()
+                }
+            }
 
             MyApplicationTheme(isDarkMode = isDarkMode, accentColor = accentColor) {
                 val userSession by viewModel.userSession.collectAsState()
@@ -286,17 +317,11 @@ fun MainAppContent(viewModel: HabitViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
     val isDarkMode by viewModel.isDarkMode.collectAsState()
 
-    // Dynamic nav bar colors based on theme
+    // Dynamic nav bar colors based on theme — glassmorphism
     val navBarBgColor = if (isDarkMode) {
-        Color(0xFF13131A).copy(alpha = 0.85f)
+        Color(0xFF13131A).copy(alpha = 0.45f)
     } else {
-        Color(0xFFFFFFFF).copy(alpha = 0.80f)
-    }
-
-    val navBarBorderColor = if (isDarkMode) {
-        Color.White.copy(alpha = 0.05f)
-    } else {
-        Color(0xFFD1D5DB).copy(alpha = 0.4f)
+        Color(0xFFFFFFFF).copy(alpha = 0.55f)
     }
 
     Scaffold(
@@ -309,12 +334,52 @@ fun MainAppContent(viewModel: HabitViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(navBarBgColor)
             ) {
+                // Background Layer for Glassmorphism
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(32.dp))
+                        .graphicsLayer {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                                renderEffect = android.graphics.RenderEffect.createBlurEffect(
+                                    40f, 40f, android.graphics.Shader.TileMode.CLAMP
+                                ).asComposeRenderEffect()
+                            }
+                        }
+                        .background(
+                            Brush.verticalGradient(
+                                colors = if (isDarkMode) {
+                                    listOf(
+                                        Color(0xFF2A2A35).copy(alpha = 0.60f),
+                                        Color(0xFF13131A).copy(alpha = 0.40f)
+                                    )
+                                } else {
+                                    listOf(
+                                        Color(0xFFFFFFFF).copy(alpha = 0.70f),
+                                        Color(0xFFF8FAFC).copy(alpha = 0.50f)
+                                    )
+                                }
+                            )
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.verticalGradient(
+                                colors = if (isDarkMode) {
+                                    listOf(Color.White.copy(alpha = 0.20f), Color.White.copy(alpha = 0.05f))
+                                } else {
+                                    listOf(Color.White.copy(alpha = 0.95f), Color.White.copy(alpha = 0.3f))
+                                }
+                            ),
+                            shape = RoundedCornerShape(32.dp)
+                        )
+                )
+                
+                // Content Layer (Icons)
                 NavigationBar(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(32.dp))
                         .testTag("app_navigation_bar"),
                     containerColor = Color.Transparent,
                     tonalElevation = 0.dp,

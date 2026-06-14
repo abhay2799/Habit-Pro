@@ -147,7 +147,7 @@ abstract class AppDatabase : RoomDatabase() {
                 habitDao.insertHabit(
                     Habit(
                         name = "Stay Hydrated",
-                        description = "Drink at least 8 glasses of water today",
+                        description = "Drink at least 8 glasses of water daily.",
                         category = "Health",
                         frequency = "Daily",
                         xpReward = 15
@@ -156,8 +156,35 @@ abstract class AppDatabase : RoomDatabase() {
                 habitDao.insertHabit(
                     Habit(
                         name = "Read 10 Pages",
-                        description = "Read a helpful, non-fiction book to learn something new",
-                        category = "Focus",
+                        description = "Read a helpful, non-fiction book daily.",
+                        category = "Productivity",
+                        frequency = "Daily",
+                        xpReward = 20
+                    )
+                )
+                habitDao.insertHabit(
+                    Habit(
+                        name = "Morning Routine",
+                        description = "Complete your morning routine everyday.",
+                        category = "Wellness",
+                        frequency = "Daily",
+                        xpReward = 15
+                    )
+                )
+                habitDao.insertHabit(
+                    Habit(
+                        name = "Focus Time at Work",
+                        description = "Work with deep focus for at least 90 minutes.",
+                        category = "Work",
+                        frequency = "Daily",
+                        xpReward = 20
+                    )
+                )
+                habitDao.insertHabit(
+                    Habit(
+                        name = "Gym Workout",
+                        description = "Complete a gym workout for strength.",
+                        category = "Fitness",
                         frequency = "Daily",
                         xpReward = 20
                     )
