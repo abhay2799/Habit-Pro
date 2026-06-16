@@ -208,7 +208,7 @@ fun DashboardScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = "Hello, ",
@@ -216,13 +216,16 @@ fun DashboardScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
                                     )
-                                    val displayName = userSession.username.split(" ").firstOrNull() ?: userSession.username
-                                    val truncatedName = if (displayName.length > 10) displayName.take(10) + "..." else displayName
+                                    val words = userSession.username.split(" ")
+                                    val displayName = if (words.size > 10) words.take(10).joinToString(" ") + "..." else userSession.username
                                     Text(
-                                        text = truncatedName,
+                                        text = displayName,
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("👋", fontSize = 24.sp)
@@ -234,6 +237,7 @@ fun DashboardScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 // Streak pill - use actual max streak
