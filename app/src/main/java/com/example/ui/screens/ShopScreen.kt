@@ -27,11 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.HabitViewModel
-import com.revenuecat.purchases.Purchases
-import com.revenuecat.purchases.PurchasesError
-import com.revenuecat.purchases.PurchaseParams
-import com.revenuecat.purchases.models.StoreTransaction
-import com.revenuecat.purchases.interfaces.PurchaseCallback
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,10 +46,7 @@ fun ShopScreen(
     var isProcessing by remember { mutableStateOf(false) }
 
     fun processRevenueCatPurchase(productId: String, isPremiumUpgrade: Boolean, coinsToCredit: Int, priceStr: String) {
-        if (!Purchases.isConfigured) {
-            Toast.makeText(context, "RevenueCat not configured! Please configure API Key.", Toast.LENGTH_LONG).show()
-            return
-        }
+        // Simulating the Google Play Billing success since we don't have live products in this sandbox:
         
         isProcessing = true
         

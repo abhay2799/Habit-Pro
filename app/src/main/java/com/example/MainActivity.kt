@@ -44,8 +44,7 @@ import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.SoundscapesScreen
 import com.example.ui.theme.MyApplicationTheme
 
-import com.revenuecat.purchases.Purchases
-import com.revenuecat.purchases.PurchasesConfiguration
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,12 +55,7 @@ class MainActivity : ComponentActivity() {
         // Initialize Notifications and RevenueCat (Ads removed)
         NotificationHelper.createNotificationChannel(applicationContext)
         
-        // Initialize RevenueCat (Google Play Billing Wrapper)
-        Purchases.debugLogsEnabled = true
-        val revenueCatApiKey = BuildConfig.REVENUECAT_PUBLIC_API_KEY
-        if (revenueCatApiKey.isNotEmpty() && revenueCatApiKey != "MY_REVENUECAT_API_KEY") {
-            Purchases.configure(PurchasesConfiguration.Builder(this, revenueCatApiKey).build())
-        }
+
 
         // Build Database and Repository
         val database = AppDatabase.getDatabase(applicationContext, lifecycleScope)
@@ -104,6 +98,44 @@ class MainActivity : ComponentActivity() {
                 } else {
                     // User changed language in settings — recreate so string resources reload
                     (context as? android.app.Activity)?.recreate()
+                }
+            }
+
+            var showSplash by remember { mutableStateOf(true) }
+
+            // Notification Permission (Android 13+) and Exact Alarm Permission Event
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                val permissionState = androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                )
+                if (permissionState != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+                    ) { isGranted ->
+                        if (isGranted) {
+                            android.util.Log.d("MainActivity", "Notification permission granted")
+                        } else {
+                            android.widget.Toast.makeText(context, "Notification permission is necessary for receiving alerts", android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    LaunchedEffect(showSplash) {
+                        if (!showSplash) {
+                            launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                }
+            }
+
+            LaunchedEffect(Unit) {
+                viewModel.requestExactAlarmEvent.collect {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        android.widget.Toast.makeText(context, "Please grant Alarm permission and try again", android.widget.Toast.LENGTH_LONG).show()
+                        val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                            data = android.net.Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                    }
                 }
             }
 
@@ -177,7 +209,6 @@ class MainActivity : ComponentActivity() {
                         .then(backgroundModifier),
                     color = Color.Transparent
                 ) {
-                    var showSplash by remember { mutableStateOf(true) }
 
                     if (showSplash) {
                         SplashScreen(onTimeout = { showSplash = false })
@@ -238,27 +269,27 @@ fun SplashScreen(onTimeout: () -> Unit) {
 
     val textAlpha by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 2500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
         label = "textAlpha"
     )
     val textScale by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0.8f,
-        animationSpec = tween(durationMillis = 2500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
         label = "textScale"
     )
     val devlanceSpacing by animateFloatAsState(
         targetValue = if (isVisible) 2f else 0f,
-        animationSpec = tween(durationMillis = 2500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
         label = "devlanceSpacing"
     )
     val studioSpacing by animateFloatAsState(
         targetValue = if (isVisible) 12f else 4f,
-        animationSpec = tween(durationMillis = 2500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
         label = "studioSpacing"
     )
     val dividerWidth by animateFloatAsState(
         targetValue = if (showDivider) 220f else 0f,
-        animationSpec = tween(durationMillis = 2500, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
         label = "dividerWidth"
     )
 
@@ -267,7 +298,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
         isVisible = true
         showDivider = true
         mediaPlayer?.start()
-        kotlinx.coroutines.delay(3500)
+        kotlinx.coroutines.delay(1200)
         onTimeout()
     }
     

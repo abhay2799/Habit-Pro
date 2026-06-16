@@ -54,8 +54,8 @@ fun SoundscapesScreen(viewModel: HabitViewModel) {
         )
     }
 
-    var activeStateIdx by remember { mutableStateOf(-1) }
-    var soundVolume by remember { mutableStateOf(0.7f) }
+    val activeStateIdx by viewModel.activeSoundscapeIdx.collectAsState()
+    val soundVolume by viewModel.soundVolume.collectAsState()
 
     Column(
         modifier = Modifier
@@ -174,7 +174,7 @@ fun SoundscapesScreen(viewModel: HabitViewModel) {
                         // Stop button
                         IconButton(
                             onClick = {
-                                activeStateIdx = -1
+                                viewModel.setActiveSoundscapeIdx(-1)
                                 val stopIntent = Intent(context, AmbientSoundService::class.java).apply {
                                     action = AmbientSoundService.ACTION_STOP
                                 }
@@ -226,13 +226,13 @@ fun SoundscapesScreen(viewModel: HabitViewModel) {
                         )
                         .clickable {
                             if (isSelected) {
-                                activeStateIdx = -1
+                                viewModel.setActiveSoundscapeIdx(-1)
                                 val stopIntent = Intent(context, AmbientSoundService::class.java).apply {
                                     action = AmbientSoundService.ACTION_STOP
                                 }
                                 context.startService(stopIntent)
                             } else {
-                                activeStateIdx = sIdx
+                                viewModel.setActiveSoundscapeIdx(sIdx)
                                 val playIntent = Intent(context, AmbientSoundService::class.java).apply {
                                     action = AmbientSoundService.ACTION_PLAY
                                     putExtra(AmbientSoundService.EXTRA_TRACK_INDEX, sIdx)
@@ -267,12 +267,6 @@ fun SoundscapesScreen(viewModel: HabitViewModel) {
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = soundscape.subtitle,
-                                fontSize = 11.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -329,7 +323,7 @@ fun SoundscapesScreen(viewModel: HabitViewModel) {
                 Slider(
                     value = soundVolume,
                     onValueChange = {
-                        soundVolume = it
+                        viewModel.setSoundVolume(it)
                         if (activeStateIdx != -1) {
                             val volIntent = Intent(context, AmbientSoundService::class.java).apply {
                                 action = AmbientSoundService.ACTION_SET_VOLUME

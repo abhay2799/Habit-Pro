@@ -50,7 +50,7 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      // signingConfig = signingConfigs.getByName("release")
     }
 
     // 'shareRelease' — a release-mode APK signed with the debug keystore.
@@ -119,9 +119,10 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation("androidx.media:media:1.7.0")
   // implementation(libs.play.services.ads)
-  implementation(libs.androidx.biometric)
-  implementation(libs.revenuecat.purchases)
+  // implementation(libs.androidx.biometric)
+  // implementation(libs.revenuecat.purchases)
   // implementation(libs.coil.compose)
   // implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)

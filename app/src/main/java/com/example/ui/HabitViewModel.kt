@@ -30,6 +30,21 @@ class HabitViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    // Ambient Sound UI State
+    private val _activeSoundscapeIdx = MutableStateFlow<Int>(-1)
+    val activeSoundscapeIdx: StateFlow<Int> = _activeSoundscapeIdx.asStateFlow()
+
+    fun setActiveSoundscapeIdx(idx: Int) {
+        _activeSoundscapeIdx.value = idx
+    }
+
+    private val _soundVolume = MutableStateFlow<Float>(0.7f)
+    val soundVolume: StateFlow<Float> = _soundVolume.asStateFlow()
+
+    fun setSoundVolume(volume: Float) {
+        _soundVolume.value = volume
+    }
+
     // Fuzzy real-time search of habits (Category, Name, Description)
     val habitsList: StateFlow<List<Habit>> = _searchQuery
         .debounce(150)
@@ -62,6 +77,9 @@ class HabitViewModel(
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
     }
+
+    private val _requestExactAlarmEvent = MutableSharedFlow<Boolean>()
+    val requestExactAlarmEvent: SharedFlow<Boolean> = _requestExactAlarmEvent.asSharedFlow()
 
     private val prefs = context.getSharedPreferences("zenter_tracker_shared_prefs", Context.MODE_PRIVATE)
 
@@ -290,7 +308,7 @@ class HabitViewModel(
         return prefs.getString("habit_alarm_$habitId", "") ?: ""
     }
 
-    fun scheduleExactHabitAlarm(habitId: Long, habitName: String, hour: Int, minute: Int, alertType: String = "Notification") {
+    fun scheduleExactHabitAlarm(habitId: Long, habitName: String, hour: Int, minute: Int, alertType: String = "Notification", skipToday: Boolean = false) {
         // Persist alarm time and metadata for BootReceiver to reschedule after reboot
         prefs.edit()
             .putString("habit_alarm_$habitId", String.format("%02d:%02d", hour, minute))
@@ -299,6 +317,13 @@ class HabitViewModel(
             .apply()
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+            viewModelScope.launch {
+                _requestExactAlarmEvent.emit(true)
+            }
+            return
+        }
+        
         val intent = Intent(context, com.example.notifications.HabitAlarmReceiver::class.java).apply {
             // Pass all required extras so receiver knows what type and whose alarm this is
             putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_HABIT_ID, habitId)
@@ -321,7 +346,7 @@ class HabitViewModel(
             set(Calendar.MINUTE, minute)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
-            if (timeInMillis <= System.currentTimeMillis()) {
+            if (timeInMillis <= System.currentTimeMillis() || skipToday) {
                 add(Calendar.DAY_OF_MONTH, 1)
             }
         }
@@ -398,6 +423,16 @@ class HabitViewModel(
         )
 
         if (enabled) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
+                viewModelScope.launch {
+                    _requestExactAlarmEvent.emit(true)
+                }
+                // revert toggle since permission denied
+                _globalReminderEnabled.value = false
+                prefs.edit().putBoolean("global_reminder_enabled", false).apply()
+                return
+            }
+
             val timeStr = String.format("%02d:%02d", hour, minute)
             _globalReminderTime.value = timeStr
             prefs.edit().putString("global_reminder_time", timeStr).apply()
@@ -520,6 +555,35 @@ class HabitViewModel(
             val isNewPr = repository.toggleHabitCompletion(habit, dateString)
             if (isNewPr) {
                 _showConfettiEvent.emit(true)
+            }
+
+            val wasCompleted = _habitCompletions.value[habit.id]?.contains(dateString) == true
+            val isCompleted = !wasCompleted
+
+            if (isCompleted) {
+                // Auto off alerts for today
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                nm.cancel(habit.id.toInt())
+                nm.cancel(10001)
+
+                val dismissIntent = Intent(context, com.example.notifications.HabitAlarmReceiver::class.java).apply {
+                    action = com.example.notifications.HabitAlarmReceiver.ACTION_DISMISS
+                    putExtra(com.example.notifications.HabitAlarmReceiver.EXTRA_HABIT_ID, habit.id)
+                }
+                context.sendBroadcast(dismissIntent)
+            }
+
+            val timeStr = prefs.getString("habit_alarm_${habit.id}", "") ?: ""
+            if (timeStr.isNotBlank()) {
+                val alertType = getHabitAlertType(habit.description)
+                if (alertType != "None") {
+                    val parts = timeStr.split(":")
+                    val hour = parts.getOrNull(0)?.toIntOrNull()
+                    val minute = parts.getOrNull(1)?.toIntOrNull()
+                    if (hour != null && minute != null) {
+                        scheduleExactHabitAlarm(habit.id, habit.name, hour, minute, alertType, skipToday = isCompleted)
+                    }
+                }
             }
         }
     }

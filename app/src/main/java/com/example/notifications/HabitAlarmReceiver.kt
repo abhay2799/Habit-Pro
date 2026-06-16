@@ -35,9 +35,6 @@ class HabitAlarmReceiver : BroadcastReceiver() {
         const val EXTRA_HABIT_ID = "habit_id"
         const val EXTRA_HABIT_NAME = "habit_name"
         const val EXTRA_ALERT_TYPE = "alert_type"
-
-        // Static reference so DISMISS_ALARM action can stop the sound
-        var activeAlarmPlayer: MediaPlayer? = null
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -46,7 +43,6 @@ class HabitAlarmReceiver : BroadcastReceiver() {
         // Handle dismiss — stop alarm sound and cancel notification
         if (intent.action == ACTION_DISMISS) {
             val habitId = intent.getLongExtra(EXTRA_HABIT_ID, -1L)
-            stopAlarmSound()
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (habitId >= 0) nm.cancel(habitId.toInt()) else nm.cancel(10001)
             Log.d("HabitAlarmReceiver", "Alarm dismissed for habit $habitId")
@@ -126,8 +122,18 @@ class HabitAlarmReceiver : BroadcastReceiver() {
     private fun handleAlarm(
         context: Context, nm: NotificationManager, habitId: Long, habitName: String
     ) {
-        // Play alarm ringtone via MediaPlayer
-        playAlarmSound(context)
+        // Full screen intent to launch AlarmActivity
+        val fullScreenIntent = Intent(context, com.example.ui.screens.AlarmActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_HABIT_ID, habitId)
+            putExtra(EXTRA_HABIT_NAME, habitName)
+        }
+        val fullScreenPendingIntent = PendingIntent.getActivity(
+            context,
+            habitId.toInt(),
+            fullScreenIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
 
         // Dismiss button PendingIntent
         val dismissIntent = PendingIntent.getBroadcast(
@@ -162,11 +168,14 @@ class HabitAlarmReceiver : BroadcastReceiver() {
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(false)
             .setOngoing(true)           // Cannot be swiped away
-            .setFullScreenIntent(tapIntent, true)   // Shows on lock screen as alarm card
-            .setContentIntent(tapIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true)   // Shows on lock screen as alarm card
+            .setContentIntent(fullScreenPendingIntent)
             .addAction(android.R.drawable.ic_delete, "✓ Dismiss Alarm", dismissIntent)
             .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
             .build()
+
+        // FLAG_INSISTENT makes the alarm ringtone loop continuously until dismissed
+        notification.flags = notification.flags or NotificationCompat.FLAG_INSISTENT
 
         val notifId = if (habitId >= 0) habitId.toInt() else 10001
         try {
@@ -176,52 +185,6 @@ class HabitAlarmReceiver : BroadcastReceiver() {
             Log.e("HabitAlarmReceiver", "❌ Notification permission denied", e)
         } catch (e: Exception) {
             Log.e("HabitAlarmReceiver", "❌ Failed to post alarm notification", e)
-        }
-    }
-
-    // ─── Sound ─────────────────────────────────────────────────────────
-    private fun playAlarmSound(context: Context) {
-        stopAlarmSound()
-        try {
-            val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
-            val player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                setDataSource(context, alarmUri)
-                isLooping = true
-                prepare()
-                start()
-            }
-            activeAlarmPlayer = player
-
-            // Auto-stop after 60s if user doesn't dismiss
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                stopAlarmSound()
-            }, 60_000L)
-
-            Log.d("HabitAlarmReceiver", "Alarm sound started")
-        } catch (e: Exception) {
-            Log.e("HabitAlarmReceiver", "Failed to play alarm sound: ${e.message}", e)
-        }
-    }
-
-    private fun stopAlarmSound() {
-        try {
-            activeAlarmPlayer?.let {
-                if (it.isPlaying) it.stop()
-                it.release()
-            }
-            activeAlarmPlayer = null
-            Log.d("HabitAlarmReceiver", "Alarm sound stopped")
-        } catch (e: Exception) {
-            Log.e("HabitAlarmReceiver", "Error stopping alarm", e)
         }
     }
 

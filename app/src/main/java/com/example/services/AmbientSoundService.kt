@@ -12,8 +12,10 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import android.support.v4.media.session.MediaSessionCompat
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
+import com.example.R
 
 class AmbientSoundService : Service() {
 
@@ -39,6 +41,7 @@ class AmbientSoundService : Service() {
     }
 
     private var mediaPlayer: MediaPlayer? = null
+    private var mediaSession: MediaSessionCompat? = null
 
     // Replace the soundscapes titles so they match a file-based music feature
     private val soundscapes = listOf(
@@ -57,6 +60,7 @@ class AmbientSoundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        mediaSession = MediaSessionCompat(this, TAG)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -170,15 +174,20 @@ class AmbientSoundService : Service() {
         val openAppPending = PendingIntent.getActivity(this, 102, openAppIntent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.presence_audio_online)
-            .setContentTitle("Playing: $trackName")
-            .setContentText("Listening to local high-quality audio...")
-            .setSubText("Zenter Focus Hub")
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle(trackName)
+            .setContentText("Devlance Studio")
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(openAppPending)
-            .addAction(android.R.drawable.ic_media_pause, "Stop Playback", stopPending)
+            .addAction(android.R.drawable.ic_media_pause, "Stop", stopPending)
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setMediaSession(mediaSession?.sessionToken)
+                    .setShowActionsInCompactView(0)
+            )
             .build()
     }
 
@@ -186,6 +195,7 @@ class AmbientSoundService : Service() {
 
     override fun onDestroy() {
         stopTrackInternal()
+        mediaSession?.release()
         super.onDestroy()
     }
 }

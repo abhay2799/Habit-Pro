@@ -216,8 +216,10 @@ fun DashboardScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.primary
                                     )
+                                    val displayName = userSession.username.split(" ").firstOrNull() ?: userSession.username
+                                    val truncatedName = if (displayName.length > 10) displayName.take(10) + "..." else displayName
                                     Text(
-                                        text = userSession.username,
+                                        text = truncatedName,
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -735,9 +737,19 @@ fun HabitFormDialog(
     val existingAlarmTime = if (editHabit != null) viewModel.getHabitAlarmTime(editHabit.id) else ""
     var reminderHour by remember { mutableStateOf(if (existingAlarmTime.isNotBlank()) existingAlarmTime.split(":").getOrNull(0)?.toIntOrNull() ?: -1 else -1) }
     var reminderMinute by remember { mutableStateOf(if (existingAlarmTime.isNotBlank()) existingAlarmTime.split(":").getOrNull(1)?.toIntOrNull() ?: -1 else -1) }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     val isDark = false // Forced light mode for popup
     val accentColor by viewModel.accentColor.collectAsState()
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (!isGranted) {
+            android.widget.Toast.makeText(context, "Notification permission is necessary for receiving alerts", android.widget.Toast.LENGTH_LONG).show()
+            alertType = "None"
+        }
+    }
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
@@ -969,7 +981,20 @@ fun HabitFormDialog(
                                     if (isSelected) MaterialTheme.colorScheme.primary
                                     else Color.Transparent
                                 )
-                                .clickable { alertType = value }
+                                .clickable {
+                                    if (value == "Notification" || value == "Alarm") {
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                            val permissionState = androidx.core.content.ContextCompat.checkSelfPermission(
+                                                context,
+                                                android.Manifest.permission.POST_NOTIFICATIONS
+                                            )
+                                            if (permissionState != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                            }
+                                        }
+                                    }
+                                    alertType = value 
+                                }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1011,23 +1036,7 @@ fun HabitFormDialog(
                     } else null
 
                     OutlinedButton(
-                        onClick = {
-                            val hour = if (reminderHour >= 0) reminderHour else 8
-                            val minute = if (reminderMinute >= 0) reminderMinute else 0
-                            TimePickerDialog(
-                                context,
-                                { _, h, m ->
-                                    reminderHour = h
-                                    reminderMinute = m
-                                    if (editHabit != null) {
-                                        viewModel.scheduleExactHabitAlarm(editHabit.id, editHabit.name, h, m, alertType)
-                                    }
-                                },
-                                hour,
-                                minute,
-                                false // AM/PM format
-                            ).show()
-                        },
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         border = androidx.compose.foundation.BorderStroke(
@@ -1062,6 +1071,37 @@ fun HabitFormDialog(
                             fontSize = 11.sp,
                             color = Color(0xFFF59E0B),
                             fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    if (showTimePicker) {
+                        val initialHour = if (reminderHour >= 0) reminderHour else 8
+                        val initialMinute = if (reminderMinute >= 0) reminderMinute else 0
+                        val timePickerState = androidx.compose.material3.rememberTimePickerState(
+                            initialHour = initialHour,
+                            initialMinute = initialMinute,
+                            is24Hour = false
+                        )
+                        androidx.compose.material3.AlertDialog(
+                            onDismissRequest = { showTimePicker = false },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    reminderHour = timePickerState.hour
+                                    reminderMinute = timePickerState.minute
+                                    if (editHabit != null) {
+                                        viewModel.scheduleExactHabitAlarm(editHabit.id, editHabit.name, reminderHour, reminderMinute, alertType)
+                                    }
+                                    showTimePicker = false
+                                }) { Text("OK") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                            },
+                            text = {
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                    androidx.compose.material3.TimePicker(state = timePickerState)
+                                }
+                            }
                         )
                     }
                 }
