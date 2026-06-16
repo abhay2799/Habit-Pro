@@ -91,8 +91,10 @@ class HabitAlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val appIcon = android.graphics.BitmapFactory.decodeResource(context.resources, com.example.R.mipmap.ic_launcher)
         val notification = NotificationCompat.Builder(context, CHANNEL_NOTIFICATION)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setLargeIcon(appIcon)
             .setContentTitle("🔔 Habit Reminder: $habitName")
             .setContentText("Don't break your streak! Time to log \"$habitName\".")
             .setStyle(
@@ -155,8 +157,10 @@ class HabitAlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val appIcon = android.graphics.BitmapFactory.decodeResource(context.resources, com.example.R.mipmap.ic_launcher)
         val notification = NotificationCompat.Builder(context, CHANNEL_ALARM)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setLargeIcon(appIcon)
             .setContentTitle("⏰ Alarm: $habitName")
             .setContentText("Your scheduled habit alarm is ringing. Tap Dismiss to stop.")
             .setStyle(
